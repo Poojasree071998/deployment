@@ -67,6 +67,7 @@ export const validateRepo = async (req: Request, res: Response) => {
 export const deployProject = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
+    const { sha } = req.body; // Extract SHA passed from webhook
     
     if (process.env.MOCK_MODE === 'true') {
       const project = mockProjects.find(p => p._id === projectId);
@@ -85,7 +86,7 @@ export const deployProject = async (req: Request, res: Response) => {
 
       // Use the centralized simulation logic
       const { triggerAllDeployments } = await import('../services/multiCloudService.js');
-      await triggerAllDeployments(project, deploymentId);
+      await triggerAllDeployments({ ...project, sha }, deploymentId);
 
       return res.status(202).json(newMockDeployment);
     }
@@ -103,7 +104,7 @@ export const deployProject = async (req: Request, res: Response) => {
     await deployment.save();
 
     const { triggerAllDeployments } = await import('../services/multiCloudService.js');
-    await triggerAllDeployments(project, deployment._id.toString());
+    await triggerAllDeployments({ ...project.toObject(), sha }, deployment._id.toString());
 
     res.status(202).json(deployment);
   } catch (error) {

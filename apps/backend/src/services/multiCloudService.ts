@@ -15,7 +15,8 @@ export const triggerAllDeployments = async (project: any, deploymentId: string) 
       projectId: project._id.toString(),
       gitUrl: project.gitUrl,
       name: project.name,
-      subdomain: project.subdomain
+      subdomain: project.subdomain,
+      sha: project.sha // Pass the commit SHA
     })
   );
 

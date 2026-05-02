@@ -144,6 +144,18 @@ export const executeBuild = async (data: any) => {
 
     await updateDeployment(deploymentId, 'deployed', `Successfully deployed! App is running.`);
     
+    // 7. Generate Nginx Config for the user
+    try {
+      const { generateNginxConfig } = await import('./nginxService.js');
+      generateNginxConfig(name, subdomain, parseInt(port));
+    } catch (e) {}
+
+    // 8. Update GitHub status to Success
+    if (data.sha) {
+      const { updateGitHubStatus } = await import('./githubStatusService.js');
+      await updateGitHubStatus(gitUrl, data.sha, 'success', `http://${subdomain}.localhost`, 'Successfully deployed via Mini PaaS');
+    }
+
     // Update deployment with URL/Port
     await Deployment.findByIdAndUpdate(deploymentId, {
       $set: { 
@@ -155,6 +167,15 @@ export const executeBuild = async (data: any) => {
 
   } catch (error: any) {
     await updateDeployment(deploymentId, 'failed', `Build failed: ${error.message}`, 'error');
+    
+    // Report Failure to GitHub
+    if (data.sha) {
+      try {
+        const { updateGitHubStatus } = await import('./githubStatusService.js');
+        await updateGitHubStatus(gitUrl, data.sha, 'failure', undefined, `Build failed: ${error.message}`);
+      } catch (e) {}
+    }
+
     console.error('Build failed:', error);
     throw error;
   }

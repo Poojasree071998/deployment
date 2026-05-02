@@ -10,7 +10,10 @@ import {
   Clock,
   AlertCircle,
   Trash2,
-  ChevronRight
+  ChevronRight,
+  Database,
+  Server,
+  HardDrive
 } from 'lucide-react';
 
 const GitHubIcon = ({ size = 20, className = "" }) => (
@@ -51,9 +54,14 @@ function App() {
   const [userRepos, setUserRepos] = useState([]);
   const [publicUrl, setPublicUrl] = useState(localStorage.getItem('public_url') || '');
   const [setupStatus, setSetupStatus] = useState(null);
+  const [view, setView] = useState('projects'); // 'projects' or 'databases'
+  const [databases, setDatabases] = useState([]);
+  const [showCreateDB, setShowCreateDB] = useState(false);
+  const [newDB, setNewDB] = useState({ name: '', type: 'mongodb' });
 
   useEffect(() => {
     fetchProjects();
+    fetchDatabases();
     
     // Check for github_token in URL (after redirect)
     const urlParams = new URLSearchParams(window.location.search);
@@ -169,6 +177,15 @@ function App() {
     }
   };
 
+  const fetchDatabases = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/databases`);
+      setDatabases(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error('Failed to fetch databases:', err);
+    }
+  };
+
   const fetchDeployments = async (projectId) => {
     setLoading(true);
     try {
@@ -213,6 +230,31 @@ function App() {
     }
   };
 
+  const handleCreateDB = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.post(`${API_BASE}/databases`, newDB);
+      setShowCreateDB(false);
+      setNewDB({ name: '', type: 'mongodb' });
+      fetchDatabases();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to create database');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteDB = async (dbId) => {
+    if (!confirm('Are you sure you want to delete this database? All data will be lost!')) return;
+    try {
+      await axios.delete(`${API_BASE}/databases/${dbId}`);
+      fetchDatabases();
+    } catch (err) {
+      alert('Failed to delete database');
+    }
+  };
+
   const handleSetupWebhook = async () => {
     if (!publicUrl) {
       alert('Please set your Public Tunnel URL first!');
@@ -249,72 +291,58 @@ function App() {
           <h1 className="text-xl font-bold text-white tracking-tight">Mini PaaS</h1>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-1">
-          <div className="flex justify-between items-center mb-5 px-2">
-            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] opacity-80">Projects</span>
+        <div className="flex-1 overflow-y-auto space-y-8">
+          {/* View Switcher */}
+          <div className="space-y-1">
             <button 
-              onClick={() => setShowCreate(true)} 
-              className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-all"
+              onClick={() => { setView('projects'); setSelectedProject(null); }}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === 'projects' && !selectedProject ? 'bg-blue-600/10 text-blue-400 border border-blue-500/10' : 'text-gray-400 hover:bg-white/[0.03]'}`}
             >
-              <Plus size={16} />
+              <HardDrive size={18} />
+              <span className="font-bold text-sm uppercase tracking-wider">Projects</span>
+            </button>
+            <button 
+              onClick={() => { setView('databases'); setSelectedProject(null); }}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === 'databases' ? 'bg-purple-600/10 text-purple-400 border border-purple-500/10' : 'text-gray-400 hover:bg-white/[0.03]'}`}
+            >
+              <Database size={18} />
+              <span className="font-bold text-sm uppercase tracking-wider">Databases</span>
             </button>
           </div>
 
-          {projects.map(project => (
-            <button 
-              key={project._id}
-              onClick={() => setSelectedProject(project)}
-              className={`w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200 group ${selectedProject?._id === project._id ? 'bg-[#1a1c2e] text-blue-400 border border-blue-500/20' : 'hover:bg-white/[0.03] text-gray-400 border border-transparent'}`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-5 h-5 flex items-center justify-center rounded bg-white/5 text-[10px]">
-                  {project.provider === 'vercel' ? '▲' : project.provider === 'render' ? 'R' : <Terminal size={12} />}
-                </div>
-                <span className="font-medium text-[14px] truncate max-w-[140px]">{project.name}</span>
-              </div>
-              <ChevronRight size={14} className={`transition-all duration-300 ${selectedProject?._id === project._id ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'}`} />
-            </button>
-          ))}
-          {projects.length === 0 && <div className="px-2 py-4 text-xs text-gray-600 italic">No projects yet.</div>}
-
-          {/* Integrations Section */}
-          <div className="pt-8 space-y-4">
-            <div className="px-2">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] opacity-80">Integrations</span>
-            </div>
-            <a 
-              href="https://vercel.com/dashboard" 
-              target="_blank" 
-              rel="noreferrer" 
-              className="w-full flex items-center p-3 rounded-xl hover:bg-white/[0.03] text-gray-400 hover:text-white transition-all border border-transparent"
-            >
-              <div className="w-4 h-4 mr-3 flex items-center justify-center rounded bg-white/5 group-hover:bg-white/10 text-[10px]">▲</div>
-              <span className="font-medium text-[14px]">Vercel Dashboard</span>
-            </a>
-            <a 
-              href="https://dashboard.render.com" 
-              target="_blank" 
-              rel="noreferrer" 
-              className="w-full flex items-center p-3 rounded-xl hover:bg-white/[0.03] text-gray-400 hover:text-white transition-all border border-transparent"
-            >
-              <div className="w-4 h-4 mr-3 flex items-center justify-center rounded bg-white/5 group-hover:bg-white/10 text-[10px]">R</div>
-              <span className="font-medium text-[14px]">Render Dashboard</span>
-            </a>
-
-            {!githubToken ? (
-              <a 
-                href={`${API_BASE}/auth/github`}
-                className="w-full flex items-center p-3 rounded-xl bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 transition-all border border-blue-500/20 mt-4"
+          {/* Project List */}
+          <div className="space-y-1">
+            <div className="flex justify-between items-center mb-4 px-2">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] opacity-80">Your Projects</span>
+              <button 
+                onClick={() => setShowCreate(true)} 
+                className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-all"
               >
-                <GitHubIcon size={16} className="mr-3" />
-                <span className="font-bold text-[14px]">Connect GitHub</span>
-              </a>
-            ) : (
-              <div className="w-full flex items-center p-3 rounded-xl bg-green-600/10 text-green-400 border border-green-500/20 mt-4">
-                <CheckCircle size={16} className="mr-3" />
-                <span className="font-bold text-[14px]">GitHub Connected</span>
-              </div>
-            )}
+                <Plus size={16} />
+              </button>
+            </div>
+
+            {projects.map(project => (
+              <button 
+                key={project._id}
+                onClick={() => { setSelectedProject(project); setView('projects'); }}
+                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all duration-200 group ${selectedProject?._id === project._id ? 'bg-[#1a1c2e] text-blue-400 border border-blue-500/20' : 'hover:bg-white/[0.03] text-gray-400 border border-transparent'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 flex items-center justify-center rounded bg-white/5 text-gray-500">
+                    <Terminal size={12} />
+                  </div>
+                  <span className="font-medium text-[14px] truncate max-w-[140px]">{project.name}</span>
+                </div>
+                <ChevronRight size={14} className={`transition-all duration-300 ${selectedProject?._id === project._id ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'}`} />
+              </button>
+            ))}
+            {projects.length === 0 && <div className="px-2 py-4 text-xs text-gray-600 italic">No projects yet.</div>}
+          </div>
+
+          {/* Independent Platform Branding */}
+          <div className="pt-4 px-2 opacity-30 pointer-events-none">
+            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em]">Independent Infrastructure</span>
           </div>
         </div>
 
@@ -566,6 +594,77 @@ function App() {
               )}
             </div>
           </div>
+        ) : view === 'databases' ? (
+          <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="flex justify-between items-end">
+              <div>
+                <h2 className="text-5xl font-bold text-white tracking-tight mb-4">Databases</h2>
+                <p className="text-gray-500 max-w-xl leading-relaxed">Provision managed MongoDB instances directly on your VPS with full persistence and isolation.</p>
+              </div>
+              <button 
+                onClick={() => setShowCreateDB(true)}
+                className="bg-purple-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-purple-700 transition-all shadow-lg shadow-purple-900/20 flex items-center gap-2 active:scale-95"
+              >
+                <Plus size={20} /> Create MongoDB
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+              {databases.map(db => (
+                <div key={db._id} className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-8 hover:bg-white/[0.01] transition-all group relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleDeleteDB(db._id)} className="text-gray-600 hover:text-red-400 p-2">
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-start gap-8">
+                    <div className="w-16 h-16 bg-purple-600/10 rounded-2xl flex items-center justify-center text-purple-400 shadow-inner">
+                      <Database size={32} />
+                    </div>
+                    <div className="space-y-6 flex-1">
+                      <div>
+                        <h3 className="text-2xl font-bold text-white mb-2">{db.name}</h3>
+                        <div className="flex items-center gap-4">
+                          <span className="flex items-center gap-1.5 text-[10px] font-black text-green-500 uppercase tracking-widest bg-green-500/10 px-2.5 py-1 rounded-full">
+                            <CheckCircle size={10} /> {db.status.toUpperCase()}
+                          </span>
+                          <span className="text-xs text-gray-600 font-mono">PORT: {db.port}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Connection String</label>
+                        <div className="flex gap-4">
+                          <code className="flex-1 bg-[#050505] border border-white/5 rounded-xl p-4 text-xs text-purple-300 font-mono truncate">
+                            {db.connectionString || `mongodb://localhost:${db.port}/${db.name}`}
+                          </code>
+                          <button 
+                            onClick={() => navigator.clipboard.writeText(db.connectionString || `mongodb://localhost:${db.port}/${db.name}`)}
+                            className="px-6 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all border border-white/5"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {databases.length === 0 && (
+                <div className="bg-[#0a0a0a] border border-dashed border-white/10 rounded-[3rem] p-24 text-center space-y-6">
+                  <div className="w-20 h-20 bg-purple-600/5 rounded-full flex items-center justify-center mx-auto text-purple-900">
+                    <Database size={40} />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-xl font-bold text-white">No databases yet</h3>
+                    <p className="text-gray-500 max-w-xs mx-auto">Create your first isolated MongoDB instance to start storing data.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
           <div className="h-[70vh] flex flex-col items-center justify-center space-y-6">
             <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center text-gray-700">
@@ -693,24 +792,15 @@ function App() {
                 />
               </div>
               
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Deployment Provider</label>
-                <div className="grid grid-cols-3 gap-4">
-                  {[
-                    { id: 'local', name: 'Local', icon: <Terminal size={18} /> },
-                    { id: 'vercel', name: 'Vercel', icon: <span className="text-xl">▲</span> },
-                    { id: 'render', name: 'Render', icon: <span className="text-xl font-black">R</span> }
-                  ].map(p => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setNewProject({...newProject, provider: p.id})}
-                      className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${newProject.provider === p.id ? 'bg-blue-600/10 border-blue-600 text-blue-400' : 'bg-[#111] border-white/5 text-gray-500 hover:border-white/20'}`}
-                    >
-                      {p.icon}
-                      <span className="text-[10px] font-bold uppercase">{p.name}</span>
-                    </button>
-                  ))}
+              <div className="space-y-3 pt-4">
+                <div className="p-4 bg-blue-600/5 border border-blue-500/10 rounded-2xl flex items-center gap-4">
+                  <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400">
+                    <Terminal size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Independent VPS Deployer</h4>
+                    <p className="text-[10px] text-gray-500">Deploying via Local Docker & Nginx Proxy</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -718,6 +808,50 @@ function App() {
             <div className="flex items-center gap-8 pt-4">
               <button type="button" onClick={() => setShowCreate(false)} className="flex-1 text-gray-500 font-bold hover:text-white transition-colors">Cancel</button>
               <button type="submit" className="flex-[2] bg-[#1d4ed8] py-5 rounded-[1.5rem] text-white font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-900/20 active:scale-95">Create Project</button>
+            </div>
+          </form>
+        </div>
+      )}
+      {/* Create Database Modal */}
+      {showCreateDB && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
+          <form onSubmit={handleCreateDB} className="bg-[#0a0a0a] border border-white/10 p-10 rounded-[3.5rem] w-full max-w-md space-y-8 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="text-center space-y-4">
+              <div className="w-20 h-20 bg-purple-600/20 rounded-3xl flex items-center justify-center text-purple-400 mx-auto shadow-xl shadow-purple-600/10">
+                <Database size={40} />
+              </div>
+              <h2 className="text-4xl font-bold text-white tracking-tight">New Database</h2>
+              <p className="text-gray-500 text-sm">Deploy an isolated MongoDB instance.</p>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Database Name</label>
+                <input 
+                  required
+                  placeholder="production-db"
+                  className="w-full bg-[#111] border border-white/5 rounded-2xl p-5 text-white placeholder:text-gray-700 focus:border-purple-500/50 focus:bg-[#151515] outline-none transition-all duration-300 shadow-inner"
+                  value={newDB.name}
+                  onChange={e => setNewDB({...newDB, name: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-')})}
+                />
+              </div>
+              
+              <div className="p-4 bg-purple-600/5 border border-purple-500/10 rounded-2xl flex items-center gap-4">
+                <div className="w-10 h-10 bg-purple-600/20 rounded-xl flex items-center justify-center text-purple-400">
+                  <Server size={20} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Managed MongoDB</h4>
+                  <p className="text-[10px] text-gray-500">v7.0 • Isolated Container • SSD Storage</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-8 pt-4">
+              <button type="button" onClick={() => setShowCreateDB(false)} className="flex-1 text-gray-500 font-bold hover:text-white transition-colors">Cancel</button>
+              <button type="submit" disabled={loading} className="flex-[2] bg-purple-600 py-5 rounded-[1.5rem] text-white font-bold hover:bg-purple-700 transition-all shadow-lg shadow-purple-900/20 active:scale-95 disabled:opacity-50">
+                {loading ? 'Creating...' : 'Create Instance'}
+              </button>
             </div>
           </form>
         </div>

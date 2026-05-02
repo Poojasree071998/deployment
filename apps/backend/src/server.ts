@@ -11,6 +11,7 @@ import webhookRoutes from './routes/webhookRoutes.js';
 import envRoutes from './routes/envRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import githubRoutes from './routes/githubRoutes.js';
+import databaseRoutes from './routes/databaseRoutes.js';
 
 dotenv.config();
 
@@ -55,6 +56,7 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/env', envRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/github', githubRoutes);
+app.use('/api/databases', databaseRoutes);
 
 app.get('/success', (req, res) => {
   const appName = req.query.app || 'Your App';

@@ -150,12 +150,6 @@ export const executeBuild = async (data: any) => {
       generateNginxConfig(name, subdomain, parseInt(port));
     } catch (e) {}
 
-    // 8. Update GitHub status to Success
-    if (data.sha) {
-      const { updateGitHubStatus } = await import('./githubStatusService.js');
-      await updateGitHubStatus(gitUrl, data.sha, 'success', `http://${subdomain}.localhost`, 'Successfully deployed via Mini PaaS');
-    }
-
     // Update deployment with URL/Port
     await Deployment.findByIdAndUpdate(deploymentId, {
       $set: { 
@@ -168,14 +162,6 @@ export const executeBuild = async (data: any) => {
   } catch (error: any) {
     await updateDeployment(deploymentId, 'failed', `Build failed: ${error.message}`, 'error');
     
-    // Report Failure to GitHub
-    if (data.sha) {
-      try {
-        const { updateGitHubStatus } = await import('./githubStatusService.js');
-        await updateGitHubStatus(gitUrl, data.sha, 'failure', undefined, `Build failed: ${error.message}`);
-      } catch (e) {}
-    }
-
     console.error('Build failed:', error);
     throw error;
   }
@@ -184,31 +170,41 @@ export const executeBuild = async (data: any) => {
 function generateDockerfile(framework: string): string {
   switch (framework) {
     case 'nextjs':
-      return `FROM node:18-alpine
+      return `FROM node:18-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
 RUN npm run build
+
+FROM node:18-alpine AS runner
+WORKDIR /app
+COPY --from=build /app/package*.json ./
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+COPY --from=build /app/node_modules ./node_modules
 EXPOSE 3000
 CMD ["npm", "start"]`;
     case 'react':
-      return `FROM node:18-alpine
+    case 'vite':
+      return `FROM node:18-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
 RUN npm run build
-RUN npm install -g serve
-EXPOSE 3000
-CMD ["serve", "-s", "dist", "-l", "3000"]`;
+
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]`;
     default:
       return `FROM node:18-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-EXPOSE 3000
+EXPOSE 5000
 CMD ["npm", "start"]`;
   }
 }

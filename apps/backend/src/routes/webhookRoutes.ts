@@ -33,7 +33,7 @@ router.post('/github', async (req, res) => {
     return res.status(200).json({ message: 'No matching project found' });
   }
 
-  // 3.1 Extract Commit SHA (for status reporting)
+  // 3.1 Extract Commit SHA
   const sha = payload.head_commit?.id || payload.after;
   const pushBranch = payload.ref?.replace('refs/heads/', '');
   const projectBranch = project.branch || 'main';
@@ -41,12 +41,6 @@ router.post('/github', async (req, res) => {
   if (pushBranch && pushBranch !== projectBranch) {
     console.log(`ℹ️ GitHub Webhook: Push to ${pushBranch} ignored (Project branch: ${projectBranch})`);
     return res.status(200).json({ message: `Ignored push to ${pushBranch}` });
-  }
-
-  // 3.1 Report "Pending" status to GitHub immediately
-  if (sha) {
-    const { updateGitHubStatus } = await import('../services/githubStatusService.js');
-    await updateGitHubStatus(project.gitUrl, sha, 'pending', undefined, 'Building your project with Docker...');
   }
 
   // 4. Security Verification (Per-Project)
@@ -57,10 +51,6 @@ router.post('/github', async (req, res) => {
     
     if (signature !== digest) {
       console.error('❌ GitHub Webhook: Invalid signature');
-      if (sha) {
-        const { updateGitHubStatus } = await import('../services/githubStatusService.js');
-        await updateGitHubStatus(project.gitUrl, sha, 'error', undefined, 'Invalid webhook signature');
-      }
       return res.status(401).json({ error: 'Invalid signature' });
     }
   }

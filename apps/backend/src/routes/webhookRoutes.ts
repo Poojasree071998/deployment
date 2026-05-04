@@ -77,14 +77,14 @@ router.post('/github', async (req, res) => {
 // Real-time log relay for the deployer
 router.post('/log', async (req, res) => {
   const { deploymentId, log, status } = req.body;
-  const { io } = await import('../server.js');
+  const { emitLog, emitDeploymentStatus } = await import('../services/socketService.js');
 
   if (log) {
-    io.emit('log', { deploymentId, log });
+    emitLog(deploymentId, log);
   }
 
   if (status) {
-    io.emit('deployment-status', { deploymentId, status });
+    emitDeploymentStatus(deploymentId, status);
   }
 
   res.status(200).json({ ok: true });

@@ -9,6 +9,7 @@ router.get('/', getProjects);
 router.put('/:projectId', updateProject);
 router.get('/deployments', getDeployments);
 router.get('/:projectId/deployments', getDeployments);
+router.post('/:projectId/deploy', deployProject);
 router.delete('/:projectId', deleteProject);
 
 export default router;

@@ -336,9 +336,12 @@ function App() {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-5 h-5 flex items-center justify-center rounded bg-white/5 text-gray-500">
-                    <Terminal size={12} />
+                    {project.provider === 'cloud' ? <Server size={12} className="text-purple-400" /> : <Terminal size={12} />}
                   </div>
-                  <span className="font-medium text-[14px] truncate max-w-[140px]">{project.name}</span>
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium text-[14px] truncate max-w-[120px]">{project.name}</span>
+                    <span className="text-[8px] font-bold opacity-50 uppercase tracking-tighter">{project.provider || 'local'}</span>
+                  </div>
                 </div>
                 <ChevronRight size={14} className={`transition-all duration-300 ${selectedProject?._id === project._id ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2'}`} />
               </button>
@@ -365,9 +368,15 @@ function App() {
           <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-start">
               <div>
-                <div className="flex items-center gap-2 text-gray-500 mb-4 group cursor-default">
-                  <Terminal size={14} className="opacity-70 group-hover:opacity-100 transition-opacity" />
-                  <span className="text-sm font-mono opacity-70 group-hover:opacity-100 transition-opacity">{selectedProject.gitUrl}</span>
+                <div className="flex items-center gap-4 text-gray-500 mb-4 group cursor-default">
+                  <div className="flex items-center gap-2">
+                    <Terminal size={14} className="opacity-70 group-hover:opacity-100 transition-opacity" />
+                    <span className="text-sm font-mono opacity-70 group-hover:opacity-100 transition-opacity">{selectedProject.gitUrl}</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold border ${selectedProject.provider === 'cloud' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                    {selectedProject.provider === 'cloud' ? <Server size={10} /> : <Terminal size={10} />}
+                    {selectedProject.provider?.toUpperCase() || 'LOCAL'}
+                  </div>
                 </div>
                 <h2 className="text-5xl font-bold text-white tracking-tight">{selectedProject.name}</h2>
               </div>
@@ -816,15 +825,36 @@ function App() {
                 />
               </div>
               
-              <div className="space-y-3 pt-4">
-                <div className="p-4 bg-blue-600/5 border border-blue-500/10 rounded-2xl flex items-center gap-4">
-                  <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400">
-                    <Terminal size={20} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Independent VPS Deployer</h4>
-                    <p className="text-[10px] text-gray-500">Deploying via Local Docker & Nginx Proxy</p>
-                  </div>
+              <div className="space-y-4 pt-4">
+                <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Deployment Provider</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => setNewProject({...newProject, provider: 'local'})}
+                    className={`p-4 rounded-2xl border transition-all text-left flex flex-col gap-3 ${newProject.provider === 'local' ? 'bg-blue-600/10 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.1)]' : 'bg-white/[0.02] border-white/5 hover:bg-white/5'}`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${newProject.provider === 'local' ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-500'}`}>
+                      <Terminal size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-[11px] font-bold text-white uppercase tracking-wider">Independent VPS</h4>
+                      <p className="text-[9px] text-gray-500 mt-1">Docker + Nginx Proxy</p>
+                    </div>
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => setNewProject({...newProject, provider: 'cloud'})}
+                    className={`p-4 rounded-2xl border transition-all text-left flex flex-col gap-3 ${newProject.provider === 'cloud' ? 'bg-purple-600/10 border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.1)]' : 'bg-white/[0.02] border-white/5 hover:bg-white/5'}`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${newProject.provider === 'cloud' ? 'bg-purple-600 text-white' : 'bg-white/5 text-gray-500'}`}>
+                      <Server size={18} />
+                    </div>
+                    <div>
+                      <h4 className="text-[11px] font-bold text-white uppercase tracking-wider">Standard Cloud</h4>
+                      <p className="text-[9px] text-gray-500 mt-1">Vercel + Render + Atlas</p>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>

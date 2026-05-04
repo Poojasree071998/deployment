@@ -12,6 +12,7 @@ import envRoutes from './routes/envRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import githubRoutes from './routes/githubRoutes.js';
 import databaseRoutes from './routes/databaseRoutes.js';
+import platformRoutes from './routes/platformRoutes.js';
 import { initSocket } from './services/socketService.js';
 
 dotenv.config();
@@ -62,6 +63,7 @@ app.use('/api/env', envRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/github', githubRoutes);
 app.use('/api/databases', databaseRoutes);
+app.use('/api/platform', platformRoutes);
 
 app.get('/success', (req, res) => {
   const appName = req.query.app || 'Your App';

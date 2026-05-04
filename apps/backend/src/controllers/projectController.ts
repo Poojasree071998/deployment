@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { triggerAllDeployments } from '../services/multiCloudService.js';
+import { NginxService } from '../services/nginxService.js';
 
 // Persistent Mock Storage for MOCK_MODE
 const MOCK_STORAGE_PATH = path.join(process.cwd(), 'data', 'mock-store.json');
@@ -33,7 +34,7 @@ let { projects: mockProjects, deployments: mockDeployments } = loadMockData();
 
 export const createProject = async (req: Request, res: Response) => {
   try {
-    const { name, gitUrl, subdomain, provider, branch } = req.body;
+    const { name, gitUrl, subdomain, provider, branch, projectType, envVars } = req.body;
     // @ts-ignore
     const userId = req.user?.id || '60d0fe4f5311236168a109ca'; // Fallback for dev
 
@@ -44,6 +45,8 @@ export const createProject = async (req: Request, res: Response) => {
         gitUrl,
         subdomain,
         userId,
+        projectType: projectType || 'static',
+        envVars: envVars || [],
         provider: provider || 'local',
         branch: branch || 'main',
         status: 'active',
@@ -52,8 +55,22 @@ export const createProject = async (req: Request, res: Response) => {
         updatedAt: new Date()
       };
       mockProjects.unshift(newMockProject);
+      
+      // Configure Nginx Routing (Mock/Local)
+      await NginxService.generateAndApply(name, subdomain, 3000 + mockProjects.length);
+
+      // Auto-trigger mock deployment
+      const mockDeployment = {
+        _id: Math.random().toString(36).substr(2, 9),
+        projectId: newMockProject._id,
+        status: 'success',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      mockDeployments.unshift(mockDeployment);
+
       saveMockData(mockProjects, mockDeployments);
-      console.log('Mock Project created:', name);
+      console.log('Mock Project & Deployment created:', name);
       return res.status(201).json(newMockProject);
     }
 
@@ -62,12 +79,19 @@ export const createProject = async (req: Request, res: Response) => {
       gitUrl,
       subdomain,
       userId,
+      projectType: projectType || 'static',
+      envVars: envVars || [],
       provider: provider || 'local',
       branch: branch || 'main',
-      webhookSecret: crypto.randomBytes(16).toString('hex')
+      webhookSecret: crypto.randomBytes(16).toString('hex'),
+      url: `http://${subdomain}.localhost`
     });
 
     await project.save();
+
+    // Trigger initial deployment
+    await addDeploymentJob({ projectId: project._id.toString(), commitMsg: 'Initial Deploy' });
+
     res.status(201).json(project);
   } catch (error) {
     console.error('Create project error:', error);
@@ -93,7 +117,7 @@ export const deployProject = async (req: Request, res: Response) => {
     const { sha } = req.body; // Extract SHA passed from webhook
     
     if (process.env.MOCK_MODE === 'true') {
-      const project = mockProjects.find(p => p._id === projectId);
+      const project = mockProjects.find((p: any) => p._id === projectId);
       if (!project) return res.status(404).json({ error: 'Project not found' });
 
       const deploymentId = Math.random().toString(36).substr(2, 9);
@@ -154,13 +178,42 @@ export const getProjects = async (req: Request, res: Response) => {
 export const getDeployments = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
+    
     if (process.env.MOCK_MODE === 'true') {
-      return res.json(mockDeployments.filter(d => d.projectId === projectId));
+      if (projectId) {
+        return res.json(mockDeployments.filter((d: any) => d.projectId === projectId));
+      }
+      return res.json(mockDeployments);
     }
-    const deployments = await Deployment.find({ projectId }).sort({ createdAt: -1 });
+
+    const query = projectId ? { projectId } : {};
+    const deployments = await Deployment.find(query).sort({ createdAt: -1 });
     res.json(deployments);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch deployments' });
+  }
+};
+
+export const updateProject = async (req: Request, res: Response) => {
+  try {
+    const { projectId } = req.params;
+    const updateData = req.body;
+
+    if (process.env.MOCK_MODE === 'true') {
+      const index = mockProjects.findIndex((p: any) => p._id === projectId);
+      if (index === -1) return res.status(404).json({ error: 'Project not found' });
+      
+      mockProjects[index] = { ...mockProjects[index], ...updateData, updatedAt: new Date() };
+      saveMockData(mockProjects, mockDeployments);
+      return res.json(mockProjects[index]);
+    }
+
+    const project = await Project.findByIdAndUpdate(projectId, updateData, { new: true });
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    
+    res.json(project);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to update project' });
   }
 };
 
@@ -168,10 +221,10 @@ export const deleteProject = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
     if (process.env.MOCK_MODE === 'true') {
-      const index = mockProjects.findIndex(p => p._id === projectId);
+      const index = mockProjects.findIndex((p: any) => p._id === projectId);
       if (index > -1) {
         mockProjects.splice(index, 1);
-        mockDeployments = mockDeployments.filter(d => d.projectId !== projectId);
+        mockDeployments = mockDeployments.filter((d: any) => d.projectId !== projectId);
         saveMockData(mockProjects, mockDeployments);
       }
       return res.status(204).send();

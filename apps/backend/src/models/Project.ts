@@ -6,9 +6,12 @@ export interface IProject extends Document {
   subdomain: string;
   userId: mongoose.Types.ObjectId;
   framework: string;
+  projectType: 'frontend' | 'backend' | 'fullstack' | 'static';
   buildPath: string;
   provider: 'local' | 'vercel' | 'render';
   branch: string;
+  url?: string;
+  envVars: Array<{ key: string, value: string }>;
   externalId?: string;
   webhookSecret?: string;
   status: 'active' | 'inactive';
@@ -22,9 +25,15 @@ const ProjectSchema: Schema = new Schema({
   subdomain: { type: String, required: true, unique: true },
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   framework: { type: String, default: 'detect' },
+  projectType: { type: String, enum: ['frontend', 'backend', 'fullstack', 'static'], default: 'static' },
   buildPath: { type: String },
   provider: { type: String, enum: ['local', 'vercel', 'render'], default: 'local' },
   branch: { type: String, default: 'main' },
+  url: { type: String },
+  envVars: [{
+    key: { type: String },
+    value: { type: String }
+  }],
   externalId: { type: String },
   webhookSecret: { type: String },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' }

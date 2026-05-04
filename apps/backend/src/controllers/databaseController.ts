@@ -118,14 +118,16 @@ async function provisionMongo(dbId: string, name: string, port: number) {
     console.log(`[DB] Starting provisioning for ${name} on port ${port}...`);
 
     if (process.env.MOCK_MODE === 'true') {
-      // Simulate delay for mock mode
-      await new Promise(resolve => setTimeout(resolve, 3000));
       const connectionString = `mongodb://localhost:${port}/${name}`;
       
-      mockDatabases = mockDatabases.map(d => 
+      const dbs = loadMockDB();
+      const updatedDbs = dbs.map((d: any) => 
         d._id === dbId ? { ...d, status: 'running', connectionString } : d
       );
-      saveMockDB(mockDatabases);
+      saveMockDB(updatedDbs);
+      
+      // Update the local cache as well
+      mockDatabases = updatedDbs;
 
       emitDatabaseStatus(dbId, 'running', connectionString);
       console.log(`[DB] Mock provisioning complete for ${name}`);

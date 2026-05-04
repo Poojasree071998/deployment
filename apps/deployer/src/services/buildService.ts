@@ -40,7 +40,7 @@ const updateDeployment = async (id: string, status: string, message: string, typ
 };
 
 export const executeBuild = async (data: any) => {
-  const { deploymentId, projectId, gitUrl, name, subdomain } = data;
+  const { deploymentId, projectId, gitUrl, name, subdomain, projectType, envVars = [] } = data;
   const buildPath = path.join(__dirname, '../../builds', deploymentId);
 
   try {
@@ -54,14 +54,28 @@ export const executeBuild = async (data: any) => {
     await updateDeployment(deploymentId, 'cloning', `Cloning repository: ${gitUrl}`);
     await git.clone(gitUrl, '.');
 
-    // 2. Detect Framework (Simplified)
-    const files = fs.readdirSync(buildPath);
+    // 2. Framework Detection / override by type
     let framework = 'static';
-    if (files.includes('package.json')) {
-      const pkg = JSON.parse(fs.readFileSync(path.join(buildPath, 'package.json'), 'utf8'));
-      if (pkg.dependencies?.next || pkg.devDependencies?.next) framework = 'nextjs';
-      else if (pkg.dependencies?.react || pkg.devDependencies?.react) framework = 'react';
+    const files = fs.readdirSync(buildPath);
+    
+    if (projectType === 'frontend') {
+      if (files.includes('package.json')) {
+        const pkg = JSON.parse(fs.readFileSync(path.join(buildPath, 'package.json'), 'utf8'));
+        if (pkg.dependencies?.next || pkg.devDependencies?.next) framework = 'nextjs';
+        else if (pkg.dependencies?.react || pkg.devDependencies?.react || pkg.devDependencies?.vite) framework = 'react';
+      }
+    } else if (projectType === 'backend') {
+      framework = 'nodejs';
+    } else {
+      // Auto-detect if not specified
+      if (files.includes('package.json')) {
+        const pkg = JSON.parse(fs.readFileSync(path.join(buildPath, 'package.json'), 'utf8'));
+        if (pkg.dependencies?.next || pkg.devDependencies?.next) framework = 'nextjs';
+        else if (pkg.dependencies?.react || pkg.devDependencies?.react) framework = 'react';
+        else framework = 'nodejs';
+      }
     }
+    
     await updateDeployment(deploymentId, 'building', `Detected framework: ${framework}. Starting build...`);
 
     // 3. Create Dockerfile if not exists
@@ -85,43 +99,21 @@ export const executeBuild = async (data: any) => {
     await new Promise((resolve, reject) => {
       docker.modem.followProgress(stream, (err, res) => {
         if (err) return reject(err);
-        // Optionally parse stream for detailed build logs
         resolve(res);
       });
     });
 
-    // 5. Push to Registry (Optional - enabled if credentials exist)
-    if (process.env.REGISTRY_USER && process.env.REGISTRY_PASSWORD) {
-      const registryUrl = process.env.REGISTRY_URL || 'docker.io';
-      const remoteTag = `${process.env.REGISTRY_USER}/${imageName}:${deploymentId}`;
-      
-      await updateDeployment(deploymentId, 'deploying', `Pushing image to registry: ${remoteTag}`);
-      
-      const image = docker.getImage(imageTag);
-      await image.tag({ repo: `${process.env.REGISTRY_USER}/${imageName}`, tag: deploymentId });
-      
-      const pushStream = await docker.getImage(remoteTag).push({
-        authconfig: {
-          username: process.env.REGISTRY_USER,
-          password: process.env.REGISTRY_PASSWORD,
-          serveraddress: registryUrl
-        }
-      });
-
-      await new Promise((resolve, reject) => {
-        docker.modem.followProgress(pushStream, (err, res) => err ? reject(err) : resolve(res));
-      });
-      await updateDeployment(deploymentId, 'deploying', `Successfully pushed to registry.`);
-    }
-
-    // 6. Run Container locally
-    await updateDeployment(deploymentId, 'deploying', `Fetching environment variables...`);
-    const envVars = await EnvVar.find({ projectId });
+    // 5. Run Container locally
+    await updateDeployment(deploymentId, 'deploying', `Setting up environment...`);
     const envStrings = envVars.map((v: any) => `${v.key}=${v.value}`);
+
+    // Default ports based on framework
+    let internalPort = 3000;
+    if (framework === 'nodejs') internalPort = 5000;
+    if (framework === 'react' || framework === 'vite') internalPort = 80;
 
     await updateDeployment(deploymentId, 'deploying', `Starting container locally...`);
     
-    // Remove existing container with same name if it exists
     try {
       const existingContainer = docker.getContainer(`${name}-latest`);
       await existingContainer.stop();
@@ -140,11 +132,14 @@ export const executeBuild = async (data: any) => {
 
     await container.start();
     const containerData = await container.inspect();
-    const port = containerData.NetworkSettings.Ports['3000/tcp']?.[0]?.HostPort;
-
-    await updateDeployment(deploymentId, 'deployed', `Successfully deployed! App is running.`);
     
-    // 7. Generate Nginx Config for the user
+    // Find the host port mapped to the internal port
+    const portMapping = containerData.NetworkSettings.Ports[`${internalPort}/tcp`];
+    const port = portMapping ? portMapping[0].HostPort : Object.values(containerData.NetworkSettings.Ports)[0][0].HostPort;
+
+    await updateDeployment(deploymentId, 'deployed', `Successfully deployed! App is running on port ${port}`);
+    
+    // 6. Generate Nginx Config
     try {
       const { generateNginxConfig } = await import('./nginxService.js');
       generateNginxConfig(name, subdomain, parseInt(port));
@@ -153,7 +148,7 @@ export const executeBuild = async (data: any) => {
     // Update deployment with URL/Port
     await Deployment.findByIdAndUpdate(deploymentId, {
       $set: { 
-        url: `http://localhost:${port}`,
+        url: `http://${subdomain}.localhost`, // Simplified for local dev
         port: parseInt(port),
         containerId: containerData.Id
       }
@@ -161,7 +156,6 @@ export const executeBuild = async (data: any) => {
 
   } catch (error: any) {
     await updateDeployment(deploymentId, 'failed', `Build failed: ${error.message}`, 'error');
-    
     console.error('Build failed:', error);
     throw error;
   }
@@ -198,13 +192,21 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]`;
-    default:
+    case 'nodejs':
       return `FROM node:18-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
 EXPOSE 5000
+CMD ["npm", "start"]`;
+    default:
+      return `FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
 CMD ["npm", "start"]`;
   }
 }

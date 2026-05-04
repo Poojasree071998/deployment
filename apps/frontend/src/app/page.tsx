@@ -31,9 +31,9 @@ import CreationModal from '@/components/CreationModal';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api` : 'http://localhost:5000/api';
 
 export default function Home() {
-  const [projects, setProjects] = useState([]);
-  const [databases, setDatabases] = useState([]);
-  const [deployments, setDeployments] = useState([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [databases, setDatabases] = useState<any[]>([]);
+  const [deployments, setDeployments] = useState<any[]>([]);
   const [platformSettings, setPlatformSettings] = useState({ 
     rootDomain: 'localhost', 
     mockMode: true,
@@ -535,7 +535,7 @@ function ActionButton({ icon, label, description, onClick, primary = false }: an
       }`}
     >
       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 ${primary ? 'bg-white/10' : 'bg-white/5 group-hover:bg-white/10'}`}>
-        {React.cloneElement(icon as React.ReactElement, { size: 24 })}
+        {React.isValidElement(icon) && React.cloneElement(icon as React.ReactElement<any>, { size: 24 })}
       </div>
       <h3 className="font-bold text-xl">{label}</h3>
       <p className="text-sm text-gray-500 mt-2 leading-relaxed">{description}</p>

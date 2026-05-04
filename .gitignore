@@ -22,7 +22,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # IDE / Editor
-.vscode/
+# .vscode/
 .idea/
 *.swp
 *.swo

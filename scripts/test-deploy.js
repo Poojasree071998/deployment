@@ -1,4 +1,4 @@
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000/api';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:5000/api';
 
 /**
  * Test script to verify the deployment flow in MOCK_MODE.

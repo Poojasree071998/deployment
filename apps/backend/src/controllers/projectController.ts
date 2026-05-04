@@ -4,10 +4,32 @@ import Deployment from '../models/Deployment.js';
 import { addDeploymentJob } from '../services/queue.js';
 import { RepoValidator } from '../services/repoValidator.js';
 import crypto from 'crypto';
+import path from 'path';
+import fs from 'fs';
+import { triggerAllDeployments } from '../services/multiCloudService.js';
 
-// In-memory store for MOCK_MODE
-const mockProjects: any[] = [];
-const mockDeployments: any[] = [];
+// Persistent Mock Storage for MOCK_MODE
+const MOCK_STORAGE_PATH = path.join(process.cwd(), 'data', 'mock-store.json');
+if (!fs.existsSync(path.dirname(MOCK_STORAGE_PATH))) {
+  fs.mkdirSync(path.dirname(MOCK_STORAGE_PATH), { recursive: true });
+}
+
+const loadMockData = () => {
+  if (fs.existsSync(MOCK_STORAGE_PATH)) {
+    try {
+      return JSON.parse(fs.readFileSync(MOCK_STORAGE_PATH, 'utf8'));
+    } catch (e) {
+      return { projects: [], deployments: [] };
+    }
+  }
+  return { projects: [], deployments: [] };
+};
+
+const saveMockData = (projects: any[], deployments: any[]) => {
+  fs.writeFileSync(MOCK_STORAGE_PATH, JSON.stringify({ projects, deployments }, null, 2));
+};
+
+let { projects: mockProjects, deployments: mockDeployments } = loadMockData();
 
 export const createProject = async (req: Request, res: Response) => {
   try {
@@ -30,6 +52,7 @@ export const createProject = async (req: Request, res: Response) => {
         updatedAt: new Date()
       };
       mockProjects.unshift(newMockProject);
+      saveMockData(mockProjects, mockDeployments);
       console.log('Mock Project created:', name);
       return res.status(201).json(newMockProject);
     }
@@ -83,9 +106,9 @@ export const deployProject = async (req: Request, res: Response) => {
         createdAt: new Date()
       };
       mockDeployments.unshift(newMockDeployment);
+      saveMockData(mockProjects, mockDeployments);
 
       // Use the centralized simulation logic
-      const { triggerAllDeployments } = await import('../services/multiCloudService.js');
       await triggerAllDeployments({ ...project, sha }, deploymentId);
 
       return res.status(202).json(newMockDeployment);
@@ -103,11 +126,11 @@ export const deployProject = async (req: Request, res: Response) => {
 
     await deployment.save();
 
-    const { triggerAllDeployments } = await import('../services/multiCloudService.js');
     await triggerAllDeployments({ ...project.toObject(), sha }, deployment._id.toString());
 
     res.status(202).json(deployment);
   } catch (error) {
+    console.error('[DEPLOY] Trigger Error:', error);
     res.status(500).json({ error: 'Failed to trigger deployment' });
   }
 };
@@ -146,7 +169,11 @@ export const deleteProject = async (req: Request, res: Response) => {
     const { projectId } = req.params;
     if (process.env.MOCK_MODE === 'true') {
       const index = mockProjects.findIndex(p => p._id === projectId);
-      if (index > -1) mockProjects.splice(index, 1);
+      if (index > -1) {
+        mockProjects.splice(index, 1);
+        mockDeployments = mockDeployments.filter(d => d.projectId !== projectId);
+        saveMockData(mockProjects, mockDeployments);
+      }
       return res.status(204).send();
     }
     await Project.findByIdAndDelete(projectId);

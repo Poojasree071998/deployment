@@ -89,6 +89,12 @@ function App() {
       ));
     });
 
+    socket.on('database-status', ({ dbId, status, connectionString }) => {
+      setDatabases(prev => prev.map(db => 
+        db._id === dbId ? { ...db, status, connectionString } : db
+      ));
+    });
+
     return () => socket.disconnect();
   }, []);
 
@@ -626,8 +632,15 @@ function App() {
                       <div>
                         <h3 className="text-2xl font-bold text-white mb-2">{db.name}</h3>
                         <div className="flex items-center gap-4">
-                          <span className="flex items-center gap-1.5 text-[10px] font-black text-green-500 uppercase tracking-widest bg-green-500/10 px-2.5 py-1 rounded-full">
-                            <CheckCircle size={10} /> {db.status.toUpperCase()}
+                          <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                            db.status === 'running' ? 'bg-green-500/10 text-green-500' : 
+                            db.status === 'creating' ? 'bg-blue-500/10 text-blue-400 animate-pulse' : 
+                            'bg-red-500/10 text-red-500'
+                          }`}>
+                            {db.status === 'running' ? <CheckCircle size={10} /> : 
+                             db.status === 'creating' ? <RefreshCw size={10} className="animate-spin" /> : 
+                             <AlertCircle size={10} />} 
+                            {db.status.toUpperCase()}
                           </span>
                           <span className="text-xs text-gray-600 font-mono">PORT: {db.port}</span>
                         </div>
@@ -637,11 +650,22 @@ function App() {
                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] ml-1">Connection String</label>
                         <div className="flex gap-4">
                           <code className="flex-1 bg-[#050505] border border-white/5 rounded-xl p-4 text-xs text-purple-300 font-mono truncate">
-                            {db.connectionString || `mongodb://localhost:${db.port}/${db.name}`}
+                            {db.status === 'creating' ? 'Provisioning connection string...' : (db.connectionString || `mongodb://localhost:${db.port}/${db.name}`)}
                           </code>
                           <button 
-                            onClick={() => navigator.clipboard.writeText(db.connectionString || `mongodb://localhost:${db.port}/${db.name}`)}
-                            className="px-6 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all border border-white/5"
+                            disabled={db.status === 'creating'}
+                            onClick={(e) => {
+                              navigator.clipboard.writeText(db.connectionString || `mongodb://localhost:${db.port}/${db.name}`);
+                              const btn = e.currentTarget;
+                              const originalText = btn.innerText;
+                              btn.innerText = 'Copied!';
+                              btn.classList.add('text-green-400');
+                              setTimeout(() => {
+                                btn.innerText = originalText;
+                                btn.classList.remove('text-green-400');
+                              }, 2000);
+                            }}
+                            className="px-6 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold transition-all border border-white/5 disabled:opacity-50"
                           >
                             Copy
                           </button>

@@ -9,7 +9,8 @@
     "dev": "concurrently \"npm run dev --workspace=dashboard\" \"npm run dev --workspace=@paas/backend\" \"npm run dev --workspace=@paas/deployer\"",
     "build": "npm run build --workspaces",
     "start": "npm run start --workspaces",
-    "test:deploy": "node scripts/test-deploy.js"
+    "test:deploy": "node scripts/test-deploy.js",
+    "test:db": "node scripts/test-database.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

@@ -12,6 +12,7 @@ import envRoutes from './routes/envRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import githubRoutes from './routes/githubRoutes.js';
 import databaseRoutes from './routes/databaseRoutes.js';
+import { initSocket } from './services/socketService.js';
 
 dotenv.config();
 
@@ -23,6 +24,8 @@ export const io = new Server(httpServer, {
     methods: ['GET', 'POST']
   }
 });
+
+initSocket(io);
 
 app.use(helmet());
 app.use(cors());
@@ -39,6 +42,8 @@ io.on('connection', (socket) => {
 
 // Database connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/paas-platform';
+mongoose.set('bufferCommands', false); // Disable buffering to prevent timeouts when DB is offline
+
 if (process.env.MOCK_MODE === 'true') {
   console.log('🚀 Running in MOCK_MODE: No MongoDB required.');
 } else {

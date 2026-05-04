@@ -89,6 +89,32 @@ app.get('/success', (req, res) => {
   `);
 });
 
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>PaaS Engine | Active</title>
+        <style>
+          body { background: #050505; color: white; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+          .card { background: #0a0a0a; border: 1px solid #1a1a1a; padding: 4rem; border-radius: 3rem; text-align: center; box-shadow: 0 40px 100px rgba(0,0,0,0.8); max-width: 600px; }
+          .icon { font-size: 5rem; margin-bottom: 2rem; }
+          h1 { font-size: 3.5rem; margin-bottom: 1rem; background: linear-gradient(to right, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900; letter-spacing: -2px; }
+          p { color: #888; font-size: 1.2rem; line-height: 1.6; }
+          .status { display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(34, 197, 94, 0.1); color: #22c55e; padding: 0.5rem 1.5rem; border-radius: 1rem; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; margin-top: 2rem; border: 1px solid rgba(34, 197, 94, 0.2); }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="icon">🚀</div>
+          <h1>PaaS Engine</h1>
+          <p>Your private infrastructure control plane is <b>Live</b> and listening for deployments.</p>
+          <div class="status">● System Operational</div>
+        </div>
+      </body>
+    </html>
+  `);
+});
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });

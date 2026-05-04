@@ -23,7 +23,7 @@ router.post('/github', async (req, res) => {
 
   // 3. Find the project matching this repo
   const projects = await getProjectsInternal();
-  const project = projects.find(p => {
+  const project = projects.find((p: any) => {
     const projectUrl = p.gitUrl.replace(/\.git$/, '').toLowerCase();
     return projectUrl === normalizedRepoUrl;
   });

@@ -57,10 +57,14 @@ server {
           fs.symlinkSync(configPath, enabledPath);
         }
 
-        // 3. Test and reload Nginx
-        await execAsync('nginx -t');
-        await execAsync('systemctl reload nginx');
-        console.log(`[NGINX] Successfully configured routing for ${fullDomain}`);
+        // 3. Test and reload Nginx (Only on Linux/Production)
+        if (process.platform !== 'win32') {
+          await execAsync('nginx -t');
+          await execAsync('systemctl reload nginx');
+          console.log(`[NGINX] Successfully configured routing for ${fullDomain}`);
+        } else {
+          console.log(`[NGINX] Windows detected: Skipping nginx reload (Mock routing enabled)`);
+        }
       } else {
         // Fallback for local development/testing
         const localConfigDir = path.join(__dirname, '../../../../config/nginx');

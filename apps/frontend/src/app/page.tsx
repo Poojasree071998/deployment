@@ -8,19 +8,9 @@ import {
   Settings, 
   Activity, 
   Box, 
-  LogOut,
-  Github,
   Database,
   ExternalLink,
-  ShieldCheck,
-  Server,
-  Globe,
-  Save,
-  Layout,
-  Image as ImageIcon,
-  Monitor,
   X,
-  RefreshCw,
   Eye
 } from 'lucide-react';
 import CreationModal from '@/components/CreationModal';
@@ -28,9 +18,9 @@ import CreationModal from '@/components/CreationModal';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ? `${process.env.NEXT_PUBLIC_API_URL}/api` : 'http://localhost:5000/api';
 
 export default function Home() {
-  const [projects, setProjects] = useState([]);
-  const [databases, setDatabases] = useState([]);
-  const [deployments, setDeployments] = useState([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [databases, setDatabases] = useState<any[]>([]);
+  const [deployments, setDeployments] = useState<any[]>([]);
   const [platformSettings, setPlatformSettings] = useState({ 
     rootDomain: 'localhost', 
     mockMode: true,
@@ -38,13 +28,13 @@ export default function Home() {
     logoUrl: ''
   });
   const [loading, setLoading] = useState(true);
-  const [modalType, setModalType] = useState(null);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [modalType, setModalType] = useState<string | null>(null);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('projects');
-  const [showPreview, setShowPreview] = useState(null);
+  const [showPreview, setShowPreview] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const openModal = (type) => setModalType(type);
+  const openModal = (type: string) => setModalType(type);
   const closeModal = () => {
     setModalType(null);
     setSelectedProject(null);
@@ -54,7 +44,7 @@ export default function Home() {
     fetchData();
     const interval = setInterval(() => {
       fetchData(false);
-    }, 10000); // 10s refresh for stability
+    }, 10000);
     return () => clearInterval(interval);
   }, [activeTab]);
 
@@ -149,7 +139,7 @@ export default function Home() {
                 <div className="space-y-3">
                   <label className="text-sm font-medium text-gray-400">Platform Name</label>
                   <input 
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 focus:border-purple-500 outline-none"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 focus:border-purple-500 outline-none text-white"
                     value={platformSettings.platformName}
                     onChange={e => setPlatformSettings({...platformSettings, platformName: e.target.value})}
                   />
@@ -163,12 +153,10 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Modal Wrapper (No Animations) */}
       {modalType && (
         <CreationModal type={modalType} onClose={closeModal} onSuccess={fetchData} project={selectedProject} />
       )}
 
-      {/* Preview Wrapper */}
       {showPreview && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-xl">
           <div className="w-full max-w-4xl bg-[#0d0d0d] rounded-[2rem] border border-white/10 overflow-hidden shadow-2xl">
@@ -188,7 +176,7 @@ export default function Home() {
   );
 }
 
-function SidebarItem({ icon, label, active, onClick }) {
+function SidebarItem({ icon, label, active, onClick }: any) {
   return (
     <button onClick={onClick} className={`flex items-center gap-4 w-full p-4 rounded-2xl transition ${active ? 'bg-white/5 text-blue-500' : 'text-gray-500 hover:text-white'}`}>
       {icon}
@@ -197,7 +185,7 @@ function SidebarItem({ icon, label, active, onClick }) {
   );
 }
 
-function ActionButton({ icon, label, description, onClick, primary }) {
+function ActionButton({ icon, label, description, onClick, primary }: any) {
   return (
     <button onClick={onClick} className={`p-6 rounded-3xl border text-left transition ${primary ? 'bg-blue-600 border-blue-500' : 'bg-[#0a0a0a] border-white/5 hover:border-white/20'}`}>
       <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6">{icon}</div>
@@ -207,7 +195,7 @@ function ActionButton({ icon, label, description, onClick, primary }) {
   );
 }
 
-function ProjectCard({ project, rootDomain, onPreview }) {
+function ProjectCard({ project, rootDomain, onPreview }: any) {
   const url = `http://${project.subdomain}.${rootDomain}`;
   return (
     <div className="bg-[#0a0a0a] border border-white/5 p-8 rounded-[2.5rem] hover:border-blue-500/30 transition">

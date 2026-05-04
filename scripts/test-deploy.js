@@ -1,3 +1,4 @@
+const axios = require('axios');
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:5000/api';
 
 /**
@@ -11,8 +12,8 @@ async function runTest() {
   try {
     // 1. Check if backend is alive
     console.log('🔍 Checking backend connectivity...');
-    const healthRes = await fetch(`${BACKEND_URL.replace('/api', '')}/health`).catch(() => null);
-    if (!healthRes || !healthRes.ok) {
+    const healthRes = await axios.get(`${BACKEND_URL.replace('/api', '')}/health`).catch(() => null);
+    if (!healthRes) {
       throw new Error(`Backend not found at ${BACKEND_URL}. Please run "npm run dev" first.`);
     }
     console.log('✅ Backend is online.\n');
@@ -20,28 +21,20 @@ async function runTest() {
     // 2. Create a test project
     const projectName = `test-app-${Math.random().toString(36).substr(2, 5)}`;
     console.log(`🏗️  Creating project: ${projectName}...`);
-    const projectRes = await fetch(`${BACKEND_URL}/projects`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: projectName,
-        gitUrl: `https://github.com/example/${projectName}`,
-        subdomain: projectName
-      })
+    const projectRes = await axios.post(`${BACKEND_URL}/projects`, {
+      name: projectName,
+      gitUrl: `https://github.com/example/${projectName}`,
+      subdomain: projectName
     });
     
-    if (!projectRes.ok) throw new Error('Failed to create project');
-    const project = await projectRes.json();
+    const project = projectRes.data;
     console.log(`✅ Project created with ID: ${project._id}\n`);
 
     // 3. Trigger deployment
     console.log('🚀 Triggering deployment...');
-    const deployRes = await fetch(`${BACKEND_URL}/deployments/${project._id}`, {
-      method: 'POST'
-    });
+    const deployRes = await axios.post(`${BACKEND_URL}/deployments/${project._id}`);
     
-    if (!deployRes.ok) throw new Error('Failed to trigger deployment');
-    const deployment = await deployRes.json();
+    const deployment = deployRes.data;
     console.log(`✅ Deployment started (ID: ${deployment._id})\n`);
 
     // 4. Poll for logs and status
@@ -56,8 +49,8 @@ async function runTest() {
         throw new Error('Test timed out after 60s');
       }
 
-      const logsRes = await fetch(`${BACKEND_URL}/deployments/${project._id}`);
-      const deployments = await logsRes.json();
+      const logsRes = await axios.get(`${BACKEND_URL}/deployments/${project._id}`);
+      const deployments = logsRes.data;
       const currentDep = deployments.find(d => d._id === deployment._id);
       
       if (currentDep) {
@@ -89,7 +82,7 @@ async function runTest() {
 
   } catch (error) {
     console.error('\n❌ TEST FAILED:');
-    console.error(`   ${error.message}`);
+    console.error(`   ${error.response?.data?.error || error.message}`);
     process.exit(1);
   }
 }
